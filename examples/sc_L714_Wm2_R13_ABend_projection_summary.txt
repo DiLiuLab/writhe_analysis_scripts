@@ -1,0 +1,29 @@
+Projection-crossing analysis
+============================
+Input: examples/sc_L714_Wm2_R13_ABend.xyz
+Original points: 2000
+Analysis points: 1000
+Spherical scan directions: 10000
+Crossing engine: auto
+
+Mean signed crossing sum (writhe estimate): -1.99870000
+Mean unsigned crossing count (ACN estimate): 2.52610000
+Minimum unsigned crossing count: 2
+Fraction at minimum: 64.6700%
+Signed distribution: -3: 2132 (21.32%); -2: 6469 (64.69%); -1: 741 (7.41%); 0: 570 (5.70%); 1: 88 (0.88%)
+Unsigned distribution: 2: 6467 (64.67%); 3: 2713 (27.13%); 4: 474 (4.74%); 5: 172 (1.72%); 6: 69 (0.69%); 7: 22 (0.22%); 8: 28 (0.28%); 9: 15 (0.15%); 10: 1 (0.01%); 11: 12 (0.12%); 13: 22 (0.22%); 15: 4 (0.04%); 17: 1 (0.01%)
+
+Representative minimum-crossing directions:
+  n=(0.421622, -0.290142, 0.859100)  unsigned=2  signed=-2
+  n=(0.487745, 0.158376, 0.858500)  unsigned=2  signed=-2
+  n=(-0.466934, 0.212824, 0.858300)  unsigned=2  signed=-2
+  n=(0.200673, -0.472647, 0.858100)  unsigned=2  signed=-2
+  n=(0.171410, 0.484382, 0.857900)  unsigned=2  signed=-2
+  n=(-0.453883, -0.241539, 0.857700)  unsigned=2  signed=-2
+  n=(-0.280659, 0.431587, 0.857300)  unsigned=2  signed=-2
+  n=(-0.084638, -0.508150, 0.857100)  unsigned=2  signed=-2
+
+Special views:
+  yz_view(+x): n=(1.000000, 0.000000, 0.000000)  unsigned=3  signed=-3
+  xz_view(+y): n=(0.000000, 1.000000, 0.000000)  unsigned=2  signed=-2
+  xy_view(+z): n=(0.000000, 0.000000, 1.000000)  unsigned=17  signed=1

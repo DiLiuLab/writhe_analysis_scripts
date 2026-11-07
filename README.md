@@ -32,12 +32,12 @@ The `examples/` directory contains:
 | File or folder | Contents |
 |---|---|
 | `sc_W3_ALocal.xyz`, `sc_W3_R11.xyz` | The two report centerlines: 2,000 points, closed length 1,071 Å, `Wr` approximately `+3` |
-| `sc_L714_Wm2_Logo.xyz` | A negative-writhe example: 2,000 points, closed length 714 Å, `Wr` approximately `-2` (see [Negative-writhe example](#negative-writhe-example-sc_l714_wm2_logoxyz)) |
+| `sc_L714_Wm2_Logo.xyz`, `sc_L714_Wm2_R13_ABend.xyz` | Two negative-writhe examples: 2,000 points, closed length 714 Å, `Wr` approximately `-2` (see [Negative-writhe examples](#negative-writhe-examples)) |
 | `sc_W3_ALocal_fake.pdb` | `sc_W3_ALocal.xyz` written as a pseudo-PDB file (one atom per point) for molecular viewers |
 | `sc_xyz_generation_parameters.md` | How the two `sc_W3_*` centerlines were generated |
 | `*_projection_scan.csv`, `*_projection_summary.txt` | 10,000-direction scans at 1,000 analysis points, one per centerline |
 | `*_projection_scan_validation.txt` | Full-resolution validation reports for those scans |
-| `sc_W3_ALocal_writhe_figures/`, `sc_W3_R11_writhe_figures/`, `sc_L714_Wm2_Logo_writhe_figures/` | Figures from the plotting script |
+| `sc_W3_ALocal_writhe_figures/`, `sc_W3_R11_writhe_figures/`, `sc_L714_Wm2_Logo_writhe_figures/`, `sc_L714_Wm2_R13_ABend_writhe_figures/` | Figures from the plotting script |
 | `conformation_comparison_figures/` | Direction-matched comparison of the two `sc_W3_*` conformations |
 
 ## Installation
@@ -655,11 +655,21 @@ python compare_projection_scans.py \
     --outdir examples/conformation_comparison_figures
 ```
 
-## Negative-writhe example: `sc_L714_Wm2_Logo.xyz`
+## Negative-writhe examples
 
-`examples/sc_L714_Wm2_Logo.xyz` is a shorter closed centerline (2,000 points,
-closed length 714 Å) with negative writhe. It shows the same distinctions as
-the report examples with the opposite sign. Its outputs were produced with:
+`examples/` also holds two shorter closed centerlines with negative writhe,
+`sc_L714_Wm2_Logo.xyz` and `sc_L714_Wm2_R13_ABend.xyz` (2,000 points each,
+closed length 714 Å, `Wr` approximately `-2`). They show the same
+distinctions as the report examples with the opposite sign. Both were scanned
+and validated with the same settings as the report examples.
+
+The seven built-in views of the plotting script (and therefore
+`--report-panels`) were chosen for `sc_W3_ALocal.xyz`, so these examples use
+`--only-custom-views` with views picked from each curve's own scan.
+
+### `sc_L714_Wm2_Logo.xyz`
+
+Its outputs were produced with:
 
 ```bash
 python analyze_projection_crossings.py examples/sc_L714_Wm2_Logo.xyz \
@@ -688,14 +698,11 @@ python validate_projection_scan.py examples/sc_L714_Wm2_Logo.xyz \
     --coarse-points 500
 ```
 
-The seven built-in views of the plotting script (and therefore
-`--report-panels`) were chosen for `sc_W3_ALocal.xyz`, so this example uses
-`--only-custom-views` with views picked from its own scan. Every view gives
-the same `(N, C)` at 1,000 and 2,000 points. The `xz` view and the four
-oblique views also keep their `(N, C)` when the normal is changed by 0.004 in
-any one coordinate. The `yz`
-view does not: it lies next to a boundary between the `N = 2` and `N = 3`
-regions, and a tilt that small can change it to `(3, -3)`.
+Every view gives the same `(N, C)` at 1,000 and 2,000 points. The `xz` view
+and the four oblique views also keep their `(N, C)` when the normal is changed
+by 0.004 in any one coordinate. The `yz` view does not: it lies next to a
+boundary between the `N = 2` and `N = 3` regions, and a change that small can
+turn it into `(3, -3)`.
 
 | View | Normal | `N` | `C` |
 |---|---|---|---|
@@ -718,6 +725,73 @@ Results of the 10,000-direction scan:
 
 The full-resolution recheck agrees in all 500 checked directions, and the
 independent 40,000-direction search also finds minimum `N = 2`.
+
+### `sc_L714_Wm2_R13_ABend.xyz`
+
+Its outputs were produced with:
+
+```bash
+python analyze_projection_crossings.py examples/sc_L714_Wm2_R13_ABend.xyz \
+    --n-directions 10000 \
+    --analysis-points 1000 \
+    --include-axis-views
+
+python plot_writhe_projection_views.py examples/sc_L714_Wm2_R13_ABend.xyz \
+    --scan-csv examples/sc_L714_Wm2_R13_ABend_projection_scan.csv \
+    --analysis-points 1000 \
+    --annotate-crossings \
+    --only-custom-views \
+    --view xz_reference:0,-1,0 \
+    --view yz_reference:1,0,0 \
+    --view minimum_crossing:0.4059,0.3177,0.8569 \
+    --view partial_cancellation:0.0053,0.1458,0.9893 \
+    --view full_cancellation:0.0507,0.1247,0.9909 \
+    --view opposite_sign:0.1883,-0.0059,0.9821 \
+    --format both
+
+python validate_projection_scan.py examples/sc_L714_Wm2_R13_ABend.xyz \
+    examples/sc_L714_Wm2_R13_ABend_projection_scan.csv \
+    --n-check 500 \
+    --seed 2026 \
+    --extra-directions 40000 \
+    --coarse-points 500
+```
+
+Every view gives the same `(N, C)` at 1,000 and 2,000 points and when the
+normal is changed by 0.004 in any one coordinate.
+
+| View | Normal | `N` | `C` |
+|---|---|---|---|
+| `xz_reference` | `(0, -1, 0)` | 2 | -2 |
+| `yz_reference` | `(1, 0, 0)` | 3 | -3 |
+| `minimum_crossing` | `(0.4059, 0.3177, 0.8569)` | 2 | -2 |
+| `partial_cancellation` | `(0.0053, 0.1458, 0.9893)` | 3 | -1 |
+| `full_cancellation` | `(0.0507, 0.1247, 0.9909)` | 4 | 0 |
+| `opposite_sign` | `(0.1883, -0.0059, 0.9821)` | 5 | +1 |
+
+Results of the 10,000-direction scan:
+
+- mean signed crossing sum `C(n)`: `-1.9987` (the writhe estimate)
+- mean unsigned crossing count `N(n)`: `2.5261`
+- smallest unsigned count: `2`, seen in `64.67%` of directions
+- most common signed sum: `C = -2` (`64.69%` of directions)
+- `0.88%` of directions give `C = +1`, the opposite sign to `Wr`
+- looking along the superhelix axis (`xy` view, `+z` normal) gives
+  `N = 17`, `C = +1`
+
+The full-resolution recheck agrees in all 500 checked directions, and the
+independent 40,000-direction search also finds minimum `N = 2`.
+
+### Same writhe, different projections
+
+The two curves have the same contour length and essentially the same writhe
+(`-2.0003` and `-1.9987`), yet their projections differ greatly. A projection
+of `sc_L714_Wm2_R13_ABend.xyz` most often shows two crossings summing to `-2`
+(`64.67%` of directions). Only `1.19%` of the projections of
+`sc_L714_Wm2_Logo.xyz` look like that; it most often shows three crossings
+summing to `-3` (`63.26%`), and `14.51%` of its projections have a positive
+signed sum. As with the `sc_W3_*` pair, equal writhe does not imply equal
+projection-crossing distributions.
 
 ## Recommended workflow
 

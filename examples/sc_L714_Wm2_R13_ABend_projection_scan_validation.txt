@@ -1,0 +1,14 @@
+Projection-scan validation
+==========================
+XYZ: examples/sc_L714_Wm2_R13_ABend.xyz
+Scan CSV: examples/sc_L714_Wm2_R13_ABend_projection_scan.csv
+Full-resolution points: 2000
+Directions rechecked: 500
+Mismatches: 0
+
+Independent coarse search:
+  directions: 40000
+  coarse curve points: 500
+  minimum unsigned crossings: 2
+  signed sum at example minimum: -2
+  example normal: (-0.48382198, 0.16022218, 0.86037500)
