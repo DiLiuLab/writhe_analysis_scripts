@@ -34,6 +34,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from analyze_projection_crossings import (
+    HAVE_SHAPELY,
     count_projection_crossings,
     project_points,
     projection_crossing_details,
@@ -41,7 +42,20 @@ from analyze_projection_crossings import (
     resample_closed_polyline,
     strip_closing_duplicate,
 )
-from writhe_gui import add_gui_argument, gui_requested, launch_gui
+
+try:
+    from writhe_gui import add_gui_argument, gui_requested, launch_gui
+except ModuleNotFoundError as exc:  # the command line works without the GUI module
+    if exc.name != "writhe_gui":
+        raise
+
+    def add_gui_argument(parser: argparse.ArgumentParser) -> None:
+        """writhe_gui.py is missing, so there is no --gui option."""
+
+    def gui_requested(argv: Sequence[str]) -> bool:
+        return False
+
+    launch_gui = None
 
 
 DEFAULT_VIEWS = [
@@ -368,7 +382,12 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     argv = list(sys.argv[1:] if argv is None else argv)
     if gui_requested(argv):
         sys.exit(launch_gui(build_parser, __file__, argv))
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if getattr(args, "gui", False):  # an abbreviation of --gui, such as --gu
+        sys.exit(launch_gui(build_parser, __file__, argv))
+    if args.engine == "shapely" and not HAVE_SHAPELY:
+        parser.error("--engine shapely requested, but Shapely is not installed")
     pts = strip_closing_duplicate(read_xyz(args.xyz_file))
     if args.analysis_points:
         pts = resample_closed_polyline(pts, args.analysis_points)

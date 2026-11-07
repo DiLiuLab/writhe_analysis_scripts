@@ -20,7 +20,8 @@ Example:
         examples/sc_W3_ALocal_projection_scan.csv --n-check 500 --seed 2026
 
 Optional coarse search:
-    python validate_projection_scan.py examples/sc_W3_ALocal.xyz scan.csv \
+    python validate_projection_scan.py examples/sc_W3_ALocal.xyz \
+        examples/sc_W3_ALocal_projection_scan.csv \
         --n-check 500 --extra-directions 40000 --coarse-points 500
 
 Run without arguments, or with --gui, to enter the parameters in a window.
@@ -37,13 +38,27 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 
 from analyze_projection_crossings import (
+    HAVE_SHAPELY,
     count_projection_crossings,
     fibonacci_sphere,
     read_xyz,
     resample_closed_polyline,
     strip_closing_duplicate,
 )
-from writhe_gui import add_gui_argument, gui_requested, launch_gui
+
+try:
+    from writhe_gui import add_gui_argument, gui_requested, launch_gui
+except ModuleNotFoundError as exc:  # the command line works without the GUI module
+    if exc.name != "writhe_gui":
+        raise
+
+    def add_gui_argument(parser: argparse.ArgumentParser) -> None:
+        """writhe_gui.py is missing, so there is no --gui option."""
+
+    def gui_requested(argv: Sequence[str]) -> bool:
+        return False
+
+    launch_gui = None
 
 
 def add_suffix(path: str, suffix: str, ext: str) -> str:
@@ -149,7 +164,12 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     argv = list(sys.argv[1:] if argv is None else argv)
     if gui_requested(argv):
         sys.exit(launch_gui(build_parser, __file__, argv))
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if getattr(args, "gui", False):  # an abbreviation of --gui, such as --gu
+        sys.exit(launch_gui(build_parser, __file__, argv))
+    if args.engine == "shapely" and not HAVE_SHAPELY:
+        parser.error("--engine shapely requested, but Shapely is not installed")
     points_full = strip_closing_duplicate(read_xyz(args.xyz_file))
     data = read_scan_csv(args.scan_csv)
 

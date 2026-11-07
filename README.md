@@ -145,7 +145,8 @@ Arguments given together with `--gui` pre-fill the form, which is a convenient
 way to start from one of the commands in this README and adjust it:
 
 ```bash
-python analyze_projection_crossings.py examples/sc_W3_ALocal.xyz --n-directions 1000 --gui
+python analyze_projection_crossings.py examples/sc_W3_ALocal.xyz --n-directions 1000 \
+    --csv-out quick_scan.csv --summary-out quick_summary.txt --gui
 ```
 
 To get all four scripts as tabs of one window, in workflow order (Analyze,
@@ -296,12 +297,16 @@ For this curve, the report-level result is approximately:
 
 A quick 1000-direction run with the packaged script gives mean signed `+3.002`, mean unsigned `4.882`, minimum `3`, and 14.7% of directions at the minimum.
 
-For a faster exploratory scan, use fewer directions and fewer curve points:
+For a faster exploratory scan, use fewer directions and fewer curve points.
+`--csv-out` and `--summary-out` keep this quick scan from replacing the
+shipped 10,000-direction files in `examples/`, which later commands use:
 
 ```bash
 python analyze_projection_crossings.py examples/sc_W3_ALocal.xyz \
     --n-directions 1000 \
-    --analysis-points 500
+    --analysis-points 500 \
+    --csv-out quick_scan.csv \
+    --summary-out quick_summary.txt
 ```
 
 Use the larger settings for the report-quality calculation.
@@ -337,6 +342,7 @@ after the input, next to the input file: here,
 | `xyz_file` | Required even when plotting CSV statistics, because the script can also draw projection views. |
 | `--scan-csv PATH` | Read the scan data and generate the signed/unsigned histograms and orientation maps. Without this option, no histogram or sphere map is made. |
 | `--analysis-points N` | Resolution used only for newly calculated projection drawings and crossing annotations. It does not recompute or change values already stored in the CSV. Default: `0`, meaning all XYZ points. |
+| `--engine` | Crossing engine for the projection drawings and their `N`/`C` labels: `auto`, `shapely`, or `numpy`, as in the analysis script. Default: `auto`. Histograms and maps come from the CSV and are not affected. |
 | `--annotate-crossings` | Mark crossings in individual projection images with red positive or blue negative symbols. It does not alter histograms or maps. |
 | `--view NAME:x,y,z` | Add a named custom projection. Repeat for more views. For a vector beginning with a minus sign, use `--view=NAME:-x,y,z`. |
 | `--only-custom-views` | Suppress the seven built-in individual projection images. This is useful when only CSV-derived histograms/maps or explicitly supplied custom views are wanted. |
@@ -552,6 +558,21 @@ python compare_projection_scans.py \
     --outdir examples/conformation_comparison_figures
 ```
 
+#### Comparison options
+
+| Option | Meaning |
+|---|---|
+| `xyz_a`, `scan_a` | XYZ coordinates and scan CSV of conformation A. |
+| `xyz_b`, `scan_b` | XYZ coordinates and scan CSV of conformation B. Both CSVs must come from the same `--n-directions`. |
+| `--label-a`, `--label-b` | Display labels used in the figures, the summary, and the output names. Defaults: `conformation_A`, `conformation_B`. |
+| `--analysis-points N` | Resample size for the coordinate-view drawings only. Default: `1000` (the plotting script's default is `0`); `0` keeps all points. |
+| `--engine` | Crossing engine for the coordinate-view drawings: `auto`, `shapely`, or `numpy`. Default: `auto`. |
+| `--format` | `png`, `svg`, or `both`. Default: `png`. |
+| `--dpi N` | PNG/rasterized-element resolution. Default: `220`. |
+| `--outdir PATH` | Output directory, relative to the current directory unless absolute. Default: `conformation_comparison_figures`. |
+| `--stem NAME` | Output filename stem. Default: `<label-a>_vs_<label-b>`. |
+| `--gui` | Open the graphical interface, pre-filled with any other arguments given. |
+
 Output names start with `<label-a>_vs_<label-b>` unless `--stem` is given.
 The summary's `Fraction with ...` rows report the smallest unsigned count
 seen in either scan, the rounded writhe estimate of A, and the most common
@@ -603,8 +624,12 @@ Its centerline has positive Gauss writhe (`Wr` approximately `+3`), so it is a *
 
 ## Exact CLI sequence for the report graphics
 
-Run these commands from the repository root. They regenerate the files in
-`examples/`:
+Run these commands from the repository root. They regenerate the `sc_W3_*`
+files and the `ALocal_vs_R11_*` comparison in `examples/`; the negative-writhe
+examples below list their own commands. Every number comes out the same. The
+text reports record the input paths and `--engine` as given, so their header
+lines differ from the shipped reports, which were made from inside the
+example folder with `--engine numpy`.
 
 ```bash
 python analyze_projection_crossings.py examples/sc_W3_ALocal.xyz \
@@ -622,6 +647,12 @@ python plot_writhe_projection_views.py examples/sc_W3_ALocal.xyz \
     --analysis-points 1000 \
     --annotate-crossings \
     --report-panels \
+    --outdir examples/sc_W3_ALocal_writhe_figures
+
+python plot_writhe_projection_views.py examples/sc_W3_ALocal.xyz \
+    --scan-csv examples/sc_W3_ALocal_projection_scan.csv \
+    --only-custom-views \
+    --format svg \
     --outdir examples/sc_W3_ALocal_writhe_figures
 
 python validate_projection_scan.py examples/sc_W3_ALocal.xyz \

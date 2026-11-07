@@ -6,10 +6,14 @@ The argument-translation and launch tests need no display.  The window tests
 run only when Tk can open a window; the window stays hidden.
 """
 
+import argparse
 import contextlib
 import io
 import os
 import shlex
+import signal
+import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -231,6 +235,93 @@ class LaunchTests(unittest.TestCase):
         self.assertIsNotNone(warning)
         self.assertEqual(values, gui.default_values(gui.fields_from_parser(analyze.build_parser())))
 
+    def test_help_wins_over_gui(self) -> None:
+        for argv in (["--gui", "--help"], ["-h", "--gui"], ["--gui", "--he"]):
+            self.assertFalse(gui.gui_requested(argv), argv)
+        for module in SCRIPTS:
+            stdout = io.StringIO()
+            with mock.patch.object(module, "launch_gui") as launch, contextlib.redirect_stdout(stdout):
+                with self.assertRaises(SystemExit) as caught:
+                    module.main(["--gui", "--help"])
+            self.assertEqual(caught.exception.code, 0)
+            launch.assert_not_called()
+            self.assertIn("usage:", stdout.getvalue())
+
+    def test_abbreviated_gui_option_opens_the_gui(self) -> None:
+        required = {
+            analyze: ["a.xyz"],
+            plot: ["a.xyz"],
+            validate: ["a.xyz", "a.csv"],
+            compare: ["a.xyz", "a.csv", "b.xyz", "b.csv"],
+        }
+        for module, args in required.items():
+            with mock.patch.object(module, "launch_gui", return_value=0) as launch:
+                with self.assertRaises(SystemExit) as caught:
+                    module.main(args + ["--gu"])
+            self.assertEqual(caught.exception.code, 0)
+            launch.assert_called_once()
+
+    def test_scripts_run_without_the_gui_module(self) -> None:
+        code = (
+            "import runpy, sys\n"
+            "sys.modules['writhe_gui'] = None\n"
+            "sys.argv = [sys.argv[1], '--help']\n"
+            "runpy.run_path(sys.argv[0], run_name='__main__')\n"
+        )
+        for module in SCRIPTS:
+            script = os.path.basename(module.__file__)
+            result = subprocess.run(
+                [sys.executable, "-c", code, script], cwd=HERE, capture_output=True, text=True,
+                env=dict(os.environ, MPLBACKEND="Agg"),
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("usage:", result.stdout)
+            self.assertNotIn("--gui", result.stdout)
+
+    def test_windows_command_quoting(self) -> None:
+        self.assertEqual(gui.quote_windows("plain.xyz"), "plain.xyz")
+        self.assertEqual(gui.quote_windows("R&D.xyz"), '"R&D.xyz"')
+        self.assertEqual(gui.quote_windows("out dir\\"), '"out dir\\\\"')
+        self.assertEqual(gui.quote_windows('say "hi"'), '"say \\"hi\\""')
+        self.assertEqual(gui.quote_windows(""), '""')
+        with mock.patch.object(gui.os, "name", "nt"):
+            command = gui.format_command(os.path.join(HERE, "analyze_projection_crossings.py"), ["R&D.xyz"], HERE)
+        self.assertEqual(command, 'python analyze_projection_crossings.py "R&D.xyz"')
+
+    def test_prefill_falls_back_when_intermixed_parsing_fails(self) -> None:
+        # Python 3.9 and 3.12.0 reject "--" followed by "-odd.xyz" in parse_intermixed_args.
+        def fail(parser, args=None, namespace=None):
+            parser.error("simulated failure")
+
+        with mock.patch.object(argparse.ArgumentParser, "parse_intermixed_args", fail):
+            values, warning = gui.initial_values(
+                analyze.build_parser, ["--n-directions", "5", "--", "-odd.xyz", "--gui"]
+            )
+        self.assertIsNone(warning)
+        self.assertEqual((values["xyz_file"], values["n_directions"]), ("-odd.xyz", "5"))
+
+    def test_shapely_engine_without_shapely_is_a_clear_error(self) -> None:
+        square = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0]])
+        with mock.patch.object(analyze, "HAVE_SHAPELY", False):
+            with self.assertRaises(RuntimeError):
+                analyze.projection_crossing_details(square, [0, 0, 1], engine="shapely")
+        cases = ((analyze, [XYZ]), (plot, [XYZ]), (validate, [XYZ, "scan.csv"]), (compare, [XYZ, "a.csv", XYZ, "b.csv"]))
+        for module, args in cases:
+            stderr = io.StringIO()
+            with mock.patch.object(module, "HAVE_SHAPELY", False), contextlib.redirect_stderr(stderr):
+                with self.assertRaises(SystemExit) as caught:
+                    module.main(args + ["--engine", "shapely"])
+            self.assertEqual(caught.exception.code, 2, module.__name__)
+            self.assertIn("Shapely is not installed", stderr.getvalue())
+
+    def test_tabbed_window_accepts_the_gui_flag(self) -> None:
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with mock.patch.object(gui, "_create_root", return_value=(None, "no display")), \
+                contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            self.assertEqual(gui.main(["--gui"]), 2)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertIn("no display", stderr.getvalue())
+
     def test_without_a_display_the_help_is_printed(self) -> None:
         stderr = io.StringIO()
         with mock.patch.object(gui, "_create_root", return_value=(None, "no display")), contextlib.redirect_stderr(stderr):
@@ -285,6 +376,19 @@ class WindowTests(unittest.TestCase):
             "python analyze_projection_crossings.py examples/sc_W3_ALocal.xyz "
             "--n-directions 500 --include-axis-views --direction=-0.27,0.86,0.42",
         )
+
+    def test_mouse_wheel_cannot_change_a_choice(self) -> None:
+        self.make_form(analyze)
+        wheel = [s for s in self.root.bind_class("TCombobox") if "MouseWheel" in s or s in ("<Button-4>", "<Button-5>")]
+        self.assertEqual(wheel, [])
+
+    def test_unexpected_signal_is_not_called_stopped(self) -> None:
+        form = self.make_form(analyze)
+        form._finish(-int(signal.SIGSEGV))
+        self.assertIn("Terminated by SIGSEGV", form.log_text.get("1.0", "end"))
+        form._stopping = True
+        form._finish(-int(signal.SIGTERM))
+        self.assertIn("Stopped.", form.status.cget("text"))
 
     def test_run_rejects_a_missing_input_file(self) -> None:
         form = self.make_form(analyze, ["examples/no_such_file.xyz", "--gui"])

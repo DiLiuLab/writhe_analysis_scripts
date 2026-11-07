@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+r"""
 Graphical front end shared by the writhe-analysis scripts.
 
 Each analysis script opens this window when it is started without arguments
@@ -31,6 +31,7 @@ import io
 import os
 import queue
 import shlex
+import signal
 import subprocess
 import sys
 import threading
@@ -82,8 +83,19 @@ _NOTE_COLOR = "gray50"
 # ---------------------------------------------------------------------------
 
 
+def _asks_for_help(argv: Sequence[str]) -> bool:
+    return any(arg == "-h" or (len(arg) >= 3 and "--help".startswith(arg)) for arg in argv)
+
+
 def gui_requested(argv: Sequence[str]) -> bool:
-    """True when a script should open the GUI: no arguments, or --gui among them."""
+    """
+    True when a script should open the GUI: no arguments, or --gui among them.
+
+    A request for help wins, so "--gui --help" prints the help text.  Scripts
+    also open the GUI when argparse matches an abbreviation such as --gu.
+    """
+    if _asks_for_help(argv):
+        return False
     return len(argv) == 0 or GUI_FLAG in argv
 
 
@@ -272,6 +284,7 @@ def _last_error_line(captured: str) -> str:
 
 def check_argv(parser: argparse.ArgumentParser, argv: Sequence[str]) -> Optional[str]:
     """Return argparse's error message for argv, or None when it parses."""
+    parser.color = False  # Python 3.15+ would otherwise add ANSI color codes
     captured = io.StringIO()
     try:
         with contextlib.redirect_stderr(captured), contextlib.redirect_stdout(captured):
@@ -310,14 +323,24 @@ def initial_values(
                 action.nargs = "*"
         if type(action) in (argparse._StoreAction, argparse._AppendAction):
             action.type = None
-    captured = io.StringIO()
-    try:
-        with contextlib.redirect_stderr(captured), contextlib.redirect_stdout(captured):
-            namespace = lenient.parse_intermixed_args(given)
-    except SystemExit:
-        return values, "Ignored the command-line arguments ({}).".format(
-            _last_error_line(captured.getvalue())
-        )
+    lenient.color = False
+    namespace = None
+    error = ""
+    # parse_intermixed_args accepts positionals between options; on Python 3.9
+    # and 3.12.0 it rejects a "--" followed by a value starting with "-", which
+    # plain parse_args handles.
+    for parse in (lenient.parse_intermixed_args, lenient.parse_args):
+        captured = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(captured), contextlib.redirect_stdout(captured):
+                namespace = parse(given)
+            break
+        except SystemExit as exc:
+            if not exc.code:  # -h/--help: nothing to pre-fill
+                return values, None
+            error = _last_error_line(captured.getvalue())
+    if namespace is None:
+        return values, "Ignored the command-line arguments ({}).".format(error)
 
     for field in fields:
         raw = getattr(namespace, field.dest, None)
@@ -346,11 +369,37 @@ def relative_to(path: str, base: str) -> str:
     return relative
 
 
+_CMD_SPECIAL = frozenset(" \t&|<>^()%!\"")
+
+
+def quote_windows(arg: str) -> str:
+    """
+    Quote one argument for cmd.exe and the Microsoft C runtime.
+
+    Unlike subprocess.list2cmdline, this also quotes characters that cmd.exe
+    treats specially, such as '&' (legal in Windows file names).
+    """
+    if arg and not any(ch in _CMD_SPECIAL for ch in arg):
+        return arg
+    out, backslashes = ['"'], 0
+    for ch in arg:
+        if ch == "\\":
+            backslashes += 1
+            continue
+        if ch == '"':
+            out.append("\\" * (2 * backslashes + 1) + '"')
+        else:
+            out.append("\\" * backslashes + ch)
+        backslashes = 0
+    out.append("\\" * (2 * backslashes) + '"')
+    return "".join(out)
+
+
 def format_command(script_path: str, argv: Sequence[str], cwd: Optional[str] = None) -> str:
     """The command line a user could type in cwd to repeat a run."""
     words = ["python", relative_to(script_path, cwd or os.getcwd())] + list(argv)
     if os.name == "nt":
-        return subprocess.list2cmdline(words)
+        return " ".join(quote_windows(word) for word in words)
     return shlex.join(words)
 
 
@@ -430,6 +479,8 @@ class ScriptForm:
         self._poll_job = None
         self._vars: Dict[str, object] = {}
         self._texts: Dict[str, object] = {}
+        self._field_labels: List[object] = []
+        self._help_labels: List[object] = []
 
         style = ttk.Style(master)
         style.configure("Help.TLabel", foreground=_NOTE_COLOR, font="TkSmallCaptionFont")
@@ -442,13 +493,19 @@ class ScriptForm:
         )
         header = (parser.description or "").strip()
         header += "\nRelative paths are resolved from the working folder: {}".format(self.workdir)
-        ttk.Label(self.frame, text=header, wraplength=820, justify="left").grid(
-            row=1, column=0, sticky="w", pady=(2, 0)
+        header_label = ttk.Label(self.frame, text=header, wraplength=820, justify="left")
+        header_label.grid(row=1, column=0, sticky="w", pady=(2, 0))
+        # Rewrap the header when the window is resized instead of cutting it off.
+        self.frame.bind(
+            "<Configure>",
+            lambda event: header_label.configure(wraplength=max(200, event.width - 24)),
+            add="+",
         )
         paned = ttk.Panedwindow(self.frame, orient="vertical")
         paned.grid(row=2, column=0, sticky="nsew", pady=(8, 0))
         paned.add(self._build_fields(paned, values), weight=3)
         paned.add(self._build_runner(paned), weight=2)
+        paned.bind("<Configure>", lambda event: self._keep_runner_visible(paned, event.height), add="+")
 
         self._log(
             "Python: {}\nWorking folder: {}\n".format(sys.executable, self.workdir), "note"
@@ -478,7 +535,15 @@ class ScriptForm:
         inner = ttk.Frame(canvas, padding=(2, 0, 10, 6))
         window = canvas.create_window(0, 0, window=inner, anchor="nw")
         inner.bind("<Configure>", lambda _event: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.bind("<Configure>", lambda event: canvas.itemconfigure(window, width=event.width))
+
+        def fit_width(event) -> None:
+            canvas.itemconfigure(window, width=event.width)
+            label_width = max((label.winfo_reqwidth() for label in self._field_labels), default=0)
+            wrap = max(150, event.width - label_width - 40)
+            for help_label in self._help_labels:
+                help_label.configure(wraplength=wrap)
+
+        canvas.bind("<Configure>", fit_width)
         inner.columnconfigure(1, weight=1)
 
         row = 0
@@ -497,10 +562,9 @@ class ScriptForm:
 
     def _add_field(self, parent, row: int, field: Field, value: FormValue) -> int:
         tk, ttk = self._tk, self._ttk
-        label = field.label + (" *" if field.required else "")
-        ttk.Label(parent, text=label, font="TkFixedFont").grid(
-            row=row, column=0, sticky="nw", padx=(0, 12), pady=(8, 0)
-        )
+        label = ttk.Label(parent, text=field.label + (" *" if field.required else ""), font="TkFixedFont")
+        label.grid(row=row, column=0, sticky="nw", padx=(0, 12), pady=(8, 0))
+        self._field_labels.append(label)
         var = None
         if field.kind == "flag":
             var = tk.BooleanVar(master=parent, value=bool(value))
@@ -535,9 +599,9 @@ class ScriptForm:
         if field.kind == "multi":
             help_text = "One value per line. " + help_text
         if help_text:
-            ttk.Label(
-                parent, text=help_text, style="Help.TLabel", wraplength=600, justify="left"
-            ).grid(row=row + 1, column=1, columnspan=2, sticky="w")
+            help_label = ttk.Label(parent, text=help_text, style="Help.TLabel", wraplength=600, justify="left")
+            help_label.grid(row=row + 1, column=1, columnspan=2, sticky="w")
+            self._help_labels.append(help_label)
         return row + 2
 
     def _build_runner(self, parent):
@@ -577,16 +641,28 @@ class ScriptForm:
         self.log_text.tag_configure("note", foreground=_NOTE_COLOR)
         return box
 
+    def _keep_runner_visible(self, paned, height: int, smallest: int = 210) -> None:
+        """When the window gets shorter, shrink the form rather than the Run buttons and log."""
+        limit = height - smallest
+        try:
+            if limit > 0 and paned.sashpos(0) > limit:
+                paned.sashpos(0, limit)
+        except self._tk.TclError:
+            pass
+
     def _enable_wheel(self, canvas) -> None:
         """Scroll the form with the mouse wheel while the pointer is over it."""
         tk = self._tk
 
         def scroll(event):
             widget = event.widget
-            while isinstance(widget, tk.Misc) and widget is not canvas:
-                widget = widget.master
-            if widget is not canvas or canvas.yview() == (0.0, 1.0):
+            node = widget
+            while isinstance(node, tk.Misc) and node is not canvas:
+                node = node.master
+            if node is not canvas or canvas.yview() == (0.0, 1.0):
                 return
+            if isinstance(widget, tk.Text) and widget.yview() != (0.0, 1.0):
+                return  # a multi-line box with more lines than it shows scrolls itself
             if getattr(event, "num", None) == 4:
                 step = -1
             elif getattr(event, "num", None) == 5:
@@ -599,6 +675,11 @@ class ScriptForm:
 
         for sequence in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             canvas.bind_all(sequence, scroll, add="+")
+        # Tk's combobox steps through its values under the wheel, so scrolling
+        # the form across --engine or --format would silently change them.
+        for sequence in canvas.bind_class("TCombobox"):
+            if "MouseWheel" in sequence or sequence in ("<Button-4>", "<Button-5>"):
+                canvas.bind_class("TCombobox", sequence, "")
 
     # -- values -------------------------------------------------------------
 
@@ -694,7 +775,12 @@ class ScriptForm:
         command = [sys.executable, "-u", self.script_path] + list(argv)
         env = dict(os.environ)
         # The scripts only save figures; Agg avoids opening any plotting window.
-        env.update({"MPLBACKEND": "Agg", "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"})
+        env.update({
+            "MPLBACKEND": "Agg",
+            "PYTHONUNBUFFERED": "1",
+            "PYTHONIOENCODING": "utf-8",
+            "PYTHON_COLORS": "0",  # plain error text in the log on Python 3.13+
+        })
         self._log("\n$ {}\n".format(format_command(self.script_path, argv, self.workdir)), "command")
         try:
             self.process = subprocess.Popen(
@@ -750,8 +836,14 @@ class ScriptForm:
         self.stop_button.configure(state="disabled")
         if code == 0:
             message, tag = "Finished successfully.", "ok"
-        elif self._stopping or code < 0:
+        elif self._stopping:
             message, tag = "Stopped.", "error"
+        elif code < 0:  # killed by a signal the GUI did not send (crash, out of memory, ...)
+            try:
+                name = signal.Signals(-code).name
+            except ValueError:
+                name = "signal {}".format(-code)
+            message, tag = "Terminated by {} (exit code {}); see the messages above.".format(name, code), "error"
         else:
             message, tag = "Failed with exit code {}; see the messages above.".format(code), "error"
         self._log(message + "\n", tag)
@@ -838,6 +930,31 @@ def _run_window(root, forms: Sequence[ScriptForm]) -> int:
     root.protocol("WM_DELETE_WINDOW", close)
     if sys.platform == "darwin":
         root.createcommand("tk::mac::Quit", close)
+
+    # Tk installs its own SIGINT/SIGTERM/SIGHUP handlers on macOS, which end the
+    # process without stopping a running script.  Stop the scripts first, then
+    # leave the main loop.  (Raising KeyboardInterrupt would not work: Tkinter
+    # swallows exceptions raised inside its callbacks.)
+    received: List[int] = []
+
+    def on_signal(signum, _frame) -> None:
+        received.append(signum)
+        for form in forms:
+            form.shutdown()
+        root.quit()
+
+    previous = {}
+    for name in ("SIGINT", "SIGTERM", "SIGHUP"):
+        number = getattr(signal, name, None)
+        if number is None:
+            continue
+        try:
+            current = signal.getsignal(number)
+            signal.signal(number, signal.SIG_IGN if current == signal.SIG_IGN else on_signal)
+            previous[number] = current
+        except (ValueError, OSError):  # not the main thread
+            pass
+
     _fit_to_screen(root)
     try:
         root.mainloop()
@@ -846,7 +963,17 @@ def _run_window(root, forms: Sequence[ScriptForm]) -> int:
     finally:
         for form in forms:
             form.shutdown()
-    return 0
+        for number, handler in previous.items():
+            try:
+                signal.signal(number, handler if handler is not None else signal.SIG_DFL)
+            except (ValueError, OSError, TypeError):
+                pass
+        if received:
+            try:
+                root.destroy()
+            except Exception:
+                pass
+    return 128 + received[0] if received else 0
 
 
 def launch_gui(parser_factory: ParserFactory, script_path: str, argv: Sequence[str] = ()) -> int:
@@ -873,7 +1000,7 @@ def launch_gui(parser_factory: ParserFactory, script_path: str, argv: Sequence[s
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Open all four scripts as tabs of one window."""
-    argv = list(sys.argv[1:] if argv is None else argv)
+    argv = [arg for arg in (sys.argv[1:] if argv is None else argv) if arg != GUI_FLAG]
     if argv:
         print((__doc__ or "").strip())
         return 0 if argv[0] in ("-h", "--help") else 2

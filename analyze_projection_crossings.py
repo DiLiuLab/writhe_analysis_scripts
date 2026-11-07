@@ -34,7 +34,19 @@ from typing import Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-from writhe_gui import add_gui_argument, gui_requested, launch_gui
+try:
+    from writhe_gui import add_gui_argument, gui_requested, launch_gui
+except ModuleNotFoundError as exc:  # the command line works without the GUI module
+    if exc.name != "writhe_gui":
+        raise
+
+    def add_gui_argument(parser: argparse.ArgumentParser) -> None:
+        """writhe_gui.py is missing, so there is no --gui option."""
+
+    def gui_requested(argv: Sequence[str]) -> bool:
+        return False
+
+    launch_gui = None
 
 try:
     import shapely
@@ -214,6 +226,8 @@ def projection_crossing_details(
     proj = project_points(pts, normal)
     nvec = normalize_vector(normal)
 
+    if engine == "shapely" and not HAVE_SHAPELY:
+        raise RuntimeError("engine 'shapely' requested, but Shapely is not installed")
     use_shapely = engine == "shapely" or (engine == "auto" and HAVE_SHAPELY)
     if use_shapely:
         i, j = candidate_pairs_shapely(proj)
@@ -435,6 +449,8 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         sys.exit(launch_gui(build_parser, __file__, argv))
     parser = build_parser()
     args = parser.parse_args(argv)
+    if getattr(args, "gui", False):  # an abbreviation of --gui, such as --gu
+        sys.exit(launch_gui(build_parser, __file__, argv))
     if args.engine == "shapely" and not HAVE_SHAPELY:
         parser.error("--engine shapely requested, but Shapely is not installed")
     run_analysis(args)
