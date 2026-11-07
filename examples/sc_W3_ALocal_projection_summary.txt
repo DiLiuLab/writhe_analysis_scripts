@@ -1,0 +1,34 @@
+Projection-crossing analysis
+============================
+Input: sc_W3_ALocal.xyz
+Original points: 2000
+Analysis points: 1000
+Spherical scan directions: 10000
+Crossing engine: numpy
+
+Mean signed crossing sum (writhe estimate): 2.99990000
+Mean unsigned crossing count (ACN estimate): 4.88330000
+Minimum unsigned crossing count: 3
+Fraction at minimum: 14.7500%
+Signed distribution: -1: 402 (4.02%); 0: 509 (5.09%); 1: 1434 (14.34%); 2: 77 (0.77%); 3: 1499 (14.99%); 4: 6079 (60.79%)
+Unsigned distribution: 3: 1475 (14.75%); 4: 6099 (60.99%); 5: 24 (0.24%); 6: 441 (4.41%); 7: 1446 (14.46%); 8: 51 (0.51%); 9: 58 (0.58%); 10: 20 (0.20%); 11: 89 (0.89%); 12: 20 (0.20%); 13: 47 (0.47%); 14: 13 (0.13%); 15: 60 (0.60%); 16: 18 (0.18%); 17: 47 (0.47%); 18: 3 (0.03%); 19: 27 (0.27%); 21: 24 (0.24%); 23: 13 (0.13%); 25: 25 (0.25%)
+
+Representative minimum-crossing directions:
+  n=(-0.024376, 0.658598, 0.752100)  unsigned=3  signed=3
+  n=(-0.002873, -0.662903, 0.748700)  unsigned=3  signed=3
+  n=(0.225313, -0.625360, 0.747100)  unsigned=3  signed=3
+  n=(-0.145785, -0.649678, 0.746100)  unsigned=3  signed=3
+  n=(0.030435, 0.666034, 0.745300)  unsigned=3  signed=3
+  n=(0.086157, -0.662040, 0.744500)  unsigned=3  signed=3
+  n=(-0.200422, 0.637763, 0.743700)  unsigned=3  signed=3
+  n=(0.173486, 0.646761, 0.742700)  unsigned=3  signed=3
+
+Special views:
+  custom_01: n=(0.249398, 0.856393, 0.452096)  unsigned=3  signed=3
+  custom_02: n=(-0.270007, 0.864324, 0.424312)  unsigned=3  signed=3
+  custom_03: n=(-0.024400, 0.658599, 0.752099)  unsigned=3  signed=3
+  custom_04: n=(-0.175401, -0.629305, 0.757106)  unsigned=4  signed=2
+  custom_05: n=(0.194101, 0.274802, 0.941705)  unsigned=6  signed=0
+  yz_view(+x): n=(1.000000, 0.000000, 0.000000)  unsigned=4  signed=4
+  xz_view(+y): n=(0.000000, 1.000000, 0.000000)  unsigned=3  signed=3
+  xy_view(+z): n=(0.000000, 0.000000, 1.000000)  unsigned=243  signed=-1

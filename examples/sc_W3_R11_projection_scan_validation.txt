@@ -1,0 +1,14 @@
+Projection-scan validation
+==========================
+XYZ: sc_W3_R11.xyz
+Scan CSV: sc_W3_R11_projection_scan.csv
+Full-resolution points: 2000
+Directions rechecked: 500
+Mismatches: 0
+
+Independent coarse search:
+  directions: 40000
+  coarse curve points: 500
+  minimum unsigned crossings: 3
+  signed sum at example minimum: 3
+  example normal: (-0.02390148, -0.45420798, 0.89057500)

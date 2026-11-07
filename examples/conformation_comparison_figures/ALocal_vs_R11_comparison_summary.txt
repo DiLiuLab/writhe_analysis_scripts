@@ -1,0 +1,30 @@
+Direction-matched conformation comparison
+========================================
+Conformation A: ALocal
+Conformation B: R11
+Matched Fibonacci directions: 10000
+
+Metric                                 ALocal            R11
+Mean signed C(n)                     2.999900       3.000200
+Mean unsigned N(n)                   4.883300       3.684400
+Minimum unsigned N(n)                       3              3
+Fraction with N=3                      14.75%         62.82%
+Fraction with C=3                      14.99%         62.97%
+Fraction with C=4                      60.79%         25.80%
+
+Direction-matched agreement
+Unsigned count identical: 38.77%
+Signed count identical: 40.77%
+Both identical: 38.77%
+Mean |delta N|: 1.208300
+Mean |delta C|: 0.814300
+Maximum |delta N|: 17
+Maximum |delta C|: 4
+Correlation of N: 0.753193
+Correlation of C: 0.614471
+
+ALocal signed distribution: -1: 402 (4.02%); 0: 509 (5.09%); 1: 1434 (14.34%); 2: 77 (0.77%); 3: 1499 (14.99%); 4: 6079 (60.79%)
+R11 signed distribution: -1: 33 (0.33%); 0: 335 (3.35%); 1: 686 (6.86%); 2: 69 (0.69%); 3: 6297 (62.97%); 4: 2580 (25.80%)
+
+ALocal unsigned distribution: 3: 1475 (14.75%); 4: 6099 (60.99%); 5: 24 (0.24%); 6: 441 (4.41%); 7: 1446 (14.46%); 8: 51 (0.51%); 9: 58 (0.58%); 10: 20 (0.20%); 11: 89 (0.89%); 12: 20 (0.20%); 13: 47 (0.47%); 14: 13 (0.13%); 15: 60 (0.60%); 16: 18 (0.18%); 17: 47 (0.47%); 18: 3 (0.03%); 19: 27 (0.27%); 21: 24 (0.24%); 23: 13 (0.13%); 25: 25 (0.25%)
+R11 unsigned distribution: 3: 6282 (62.82%); 4: 2635 (26.35%); 5: 471 (4.71%); 6: 227 (2.27%); 7: 209 (2.09%); 8: 51 (0.51%); 9: 8 (0.08%); 10: 11 (0.11%); 11: 5 (0.05%); 12: 18 (0.18%); 13: 4 (0.04%); 14: 30 (0.30%); 15: 4 (0.04%); 16: 5 (0.05%); 17: 9 (0.09%); 18: 5 (0.05%); 19: 5 (0.05%); 20: 2 (0.02%); 21: 9 (0.09%); 23: 6 (0.06%); 25: 4 (0.04%)
