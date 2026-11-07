@@ -1,0 +1,30 @@
+Direction-matched conformation comparison
+========================================
+Conformation A: Logo
+Conformation B: R13_ABend
+Matched Fibonacci directions: 10000
+
+Metric                                   Logo      R13_ABend
+Mean signed C(n)                    -2.000300      -1.998700
+Mean unsigned N(n)                   3.894900       2.526100
+Minimum unsigned N(n)                       2              2
+Fraction with N=2                       1.19%         64.67%
+Fraction with C=-2                      3.94%         64.69%
+Fraction with C=-3                     63.26%         21.32%
+
+Direction-matched agreement
+Unsigned count identical: 14.58%
+Signed count identical: 18.15%
+Both identical: 12.78%
+Mean |delta N|: 1.414400
+Mean |delta C|: 1.012000
+Maximum |delta N|: 7
+Maximum |delta C|: 4
+Correlation of N: 0.657315
+Correlation of C: 0.503986
+
+Logo signed distribution: -3: 6326 (63.26%); -2: 394 (3.94%); -1: 1688 (16.88%); 0: 141 (1.41%); 1: 1451 (14.51%)
+R13_ABend signed distribution: -3: 2132 (21.32%); -2: 6469 (64.69%); -1: 741 (7.41%); 0: 570 (5.70%); 1: 88 (0.88%)
+
+Logo unsigned distribution: 2: 119 (1.19%); 3: 6433 (64.33%); 4: 394 (3.94%); 5: 2195 (21.95%); 6: 22 (0.22%); 7: 507 (5.07%); 9: 225 (2.25%); 11: 105 (1.05%)
+R13_ABend unsigned distribution: 2: 6467 (64.67%); 3: 2713 (27.13%); 4: 474 (4.74%); 5: 172 (1.72%); 6: 69 (0.69%); 7: 22 (0.22%); 8: 28 (0.28%); 9: 15 (0.15%); 10: 1 (0.01%); 11: 12 (0.12%); 13: 22 (0.22%); 15: 4 (0.04%); 17: 1 (0.01%)

@@ -126,6 +126,39 @@ def format_distribution(values: np.ndarray) -> str:
     )
 
 
+def most_common(values: np.ndarray) -> int:
+    return int(Counter(int(value) for value in values).most_common(1)[0][0])
+
+
+def highlighted_values(data: Dict[str, np.ndarray]) -> Tuple[List[int], List[int]]:
+    """
+    Crossing values worth a "Fraction with ..." row in the summary.
+
+    N: the smallest unsigned count seen in either scan.  C: the rounded
+    writhe estimate of A, then the most common signed sums of A and B.
+    For the sc_W3 example pair these are N=3, C=3 and C=4.
+    """
+    n_values = [int(min(np.min(data["unsigned_a"]), np.min(data["unsigned_b"])))]
+    c_values: List[int] = []
+    for value in (
+        int(round(float(np.mean(data["signed_a"])))),
+        most_common(data["signed_a"]),
+        most_common(data["signed_b"]),
+    ):
+        if value not in c_values:
+            c_values.append(value)
+    return n_values, c_values
+
+
+def coordinate_view_title(data: Dict[str, np.ndarray]) -> str:
+    """Name the shared writhe in the figure title when both scans round to it."""
+    writhe_a = int(round(float(np.mean(data["signed_a"]))))
+    writhe_b = int(round(float(np.mean(data["signed_b"]))))
+    if writhe_a == writhe_b:
+        return "Coordinate-plane views of two Wr approximately {:+d} conformations".format(writhe_a)
+    return "Coordinate-plane views of two conformations"
+
+
 def write_matched_csv(path: str, data: Dict[str, np.ndarray]) -> None:
     with open(path, "w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
@@ -171,9 +204,15 @@ def write_summary(
         handle.write("Mean signed C(n)               {:14.6f} {:14.6f}\n".format(float(np.mean(ca)), float(np.mean(cb))))
         handle.write("Mean unsigned N(n)             {:14.6f} {:14.6f}\n".format(float(np.mean(ua)), float(np.mean(ub))))
         handle.write("Minimum unsigned N(n)          {:14d} {:14d}\n".format(int(np.min(ua)), int(np.min(ub))))
-        handle.write("Fraction with N=3              {:13.2f}% {:13.2f}%\n".format(100.0 * float(np.mean(ua == 3)), 100.0 * float(np.mean(ub == 3))))
-        handle.write("Fraction with C=3              {:13.2f}% {:13.2f}%\n".format(100.0 * float(np.mean(ca == 3)), 100.0 * float(np.mean(cb == 3))))
-        handle.write("Fraction with C=4              {:13.2f}% {:13.2f}%\n".format(100.0 * float(np.mean(ca == 4)), 100.0 * float(np.mean(cb == 4))))
+        n_values, c_values = highlighted_values(data)
+        for value in n_values:
+            handle.write("{:<31}{:13.2f}% {:13.2f}%\n".format(
+                "Fraction with N={}".format(value),
+                100.0 * float(np.mean(ua == value)), 100.0 * float(np.mean(ub == value))))
+        for value in c_values:
+            handle.write("{:<31}{:13.2f}% {:13.2f}%\n".format(
+                "Fraction with C={}".format(value),
+                100.0 * float(np.mean(ca == value)), 100.0 * float(np.mean(cb == value))))
         handle.write("\nDirection-matched agreement\n")
         handle.write("Unsigned count identical: {:.2f}%\n".format(100.0 * same_u))
         handle.write("Signed count identical: {:.2f}%\n".format(100.0 * same_c))
@@ -314,6 +353,7 @@ def coordinate_view_plot(
     base_path: str,
     formats: Sequence[str],
     dpi: int,
+    title: str = "Coordinate-plane views of two conformations",
 ) -> List[str]:
     points_a = strip_closing_duplicate(read_xyz(xyz_a))
     points_b = strip_closing_duplicate(read_xyz(xyz_b))
@@ -325,7 +365,7 @@ def coordinate_view_plot(
     for column, (view_name, normal) in enumerate(views):
         draw_projection(axes[0, column], points_a, normal, "{}: {}".format(label_a, view_name), CURVE_A, engine)
         draw_projection(axes[1, column], points_b, normal, "{}: {}".format(label_b, view_name), CURVE_B, engine)
-    fig.suptitle("Coordinate-plane views of two Wr approximately +3 conformations", fontsize=15)
+    fig.suptitle(title, fontsize=15)
     fig.text(0.98, 0.015, "red = positive crossing; blue = negative crossing", ha="right", fontsize=9)
     fig.tight_layout(rect=(0, 0.03, 1, 0.95))
     outputs = save_figure(fig, base_path, formats, dpi)
@@ -391,6 +431,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             args.analysis_points, args.engine,
             os.path.join(args.outdir, stem + "_coordinate_views"),
             formats, args.dpi,
+            title=coordinate_view_title(data),
         )
     )
 

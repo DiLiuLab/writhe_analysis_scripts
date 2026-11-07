@@ -23,7 +23,7 @@ interface (see [Graphical interface](#graphical-interface)).
 | `validate_projection_scan.py` | Stage 3: recheck a reduced-resolution scan at full resolution |
 | `compare_projection_scans.py` | Stage 4: direction-matched comparison of two conformations |
 | `writhe_gui.py` | Graphical interface shared by the four scripts; run it directly for one window with all four |
-| `test_crossing_signs.py`, `test_gui.py` | Unit tests |
+| `test_crossing_signs.py`, `test_compare_scans.py`, `test_gui.py` | Unit tests |
 | `requirements.txt` | Required Python packages |
 | `examples/` | Example input centerlines and every output used in the report |
 
@@ -38,7 +38,7 @@ The `examples/` directory contains:
 | `*_projection_scan.csv`, `*_projection_summary.txt` | 10,000-direction scans at 1,000 analysis points, one per centerline |
 | `*_projection_scan_validation.txt` | Full-resolution validation reports for those scans |
 | `sc_W3_ALocal_writhe_figures/`, `sc_W3_R11_writhe_figures/`, `sc_L714_Wm2_Logo_writhe_figures/`, `sc_L714_Wm2_R13_ABend_writhe_figures/` | Figures from the plotting script |
-| `conformation_comparison_figures/` | Direction-matched comparison of the two `sc_W3_*` conformations |
+| `conformation_comparison_figures/` | Direction-matched comparisons of the two `sc_W3_*` conformations (`ALocal_vs_R11_*`) and of the two `sc_L714_*` conformations (`Logo_vs_R13_ABend_*`) |
 
 ## Installation
 
@@ -553,6 +553,12 @@ python compare_projection_scans.py \
 ```
 
 Output names start with `<label-a>_vs_<label-b>` unless `--stem` is given.
+The summary's `Fraction with ...` rows report the smallest unsigned count
+seen in either scan, the rounded writhe estimate of A, and the most common
+signed sums of A and B. The coordinate-view title names the writhe when both
+scans round to the same value. For the `sc_W3_*` pair this gives the rows
+`N=3`, `C=3`, and `C=4` and the title "two Wr approximately +3
+conformations".
 `--outdir` defaults to `conformation_comparison_figures` in the current
 directory. The command above writes these files to
 `examples/conformation_comparison_figures/`:
@@ -793,6 +799,25 @@ summing to `-3` (`63.26%`), and `14.51%` of its projections have a positive
 signed sum. As with the `sc_W3_*` pair, equal writhe does not imply equal
 projection-crossing distributions.
 
+The direction-matched comparison in
+`examples/conformation_comparison_figures/Logo_vs_R13_ABend_*` was produced
+with:
+
+```bash
+python compare_projection_scans.py \
+    examples/sc_L714_Wm2_Logo.xyz examples/sc_L714_Wm2_Logo_projection_scan.csv \
+    examples/sc_L714_Wm2_R13_ABend.xyz examples/sc_L714_Wm2_R13_ABend_projection_scan.csv \
+    --label-a "Logo" \
+    --label-b "R13_ABend" \
+    --analysis-points 1000 \
+    --format both \
+    --outdir examples/conformation_comparison_figures
+```
+
+On the matched normals the two curves have the same unsigned count in only
+`14.58%` of directions and the same signed sum in `18.15%`. For the `sc_W3_*`
+pair these figures are `38.77%` and `40.77%`.
+
 ## Recommended workflow
 
 1. Run `analyze_projection_crossings.py` at 1000 points for the main spherical scan.
@@ -812,7 +837,10 @@ python -m unittest -v
 
 `test_crossing_signs.py` checks the corrected positive signs in the xz and yz
 projections, invariance under reversing the viewing normal, the six-crossing
-cancellation view, and a positive spherical mean. `test_gui.py` checks that
+cancellation view, and a positive spherical mean. `test_compare_scans.py`
+checks that the comparison summary for the `sc_W3_*` pair still matches the
+committed file and that other pairs get their own highlighted values and
+title. `test_gui.py` checks that
 the graphical interface offers every command-line option, builds commands
 that parse back to the intended values, and pre-fills the form from `--gui`
 arguments. When a display is available, it also runs and stops a short
